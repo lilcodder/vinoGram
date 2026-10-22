@@ -1,6 +1,7 @@
 /out/
 Debug/
 Release/
+!/tools/release/
 /ThirdParty/
 /Telegram/build/target
 /Telegram/build/ai-machine-tag

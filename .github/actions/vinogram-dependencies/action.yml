@@ -1,0 +1,40 @@
+name: vinoGram dependency group
+description: Restore or build one reusable group of Windows dependencies
+inputs:
+  group:
+    description: foundation, qt or engine
+    required: true
+  restore-only:
+    description: Fail if the preceding job did not produce its cache
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Select cache paths
+      id: paths
+      shell: pwsh
+      env:
+        DEPENDENCY_GROUP: ${{ inputs.group }}
+      run: python C:/TBuild/vinoGram/tools/release/windows/ci.py paths $env:DEPENDENCY_GROUP
+    - name: Restore dependency group
+      id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: ${{ steps.paths.outputs.paths }}
+        key: vinogram-win-x64-v1-${{ inputs.group }}-${{ hashFiles('TBuild/vinoGram/Telegram/build/prepare/**', 'TBuild/vinoGram/Telegram/build/qt_version.py', 'TBuild/vinoGram/tools/release/windows/ci.py') }}
+    - name: Require prepared dependencies
+      if: inputs.restore-only == 'true' && steps.cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: throw 'Dependency cache is missing. Re-run the full workflow to rebuild it.'
+    - name: Build dependency group
+      if: inputs.restore-only != 'true' && steps.cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      env:
+        DEPENDENCY_GROUP: ${{ inputs.group }}
+      run: python C:/TBuild/vinoGram/tools/release/windows/ci.py prepare $env:DEPENDENCY_GROUP
+    - name: Save dependency group before compiling the client
+      if: inputs.restore-only != 'true' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: ${{ steps.paths.outputs.paths }}
+        key: ${{ steps.cache.outputs.cache-primary-key }}

@@ -1,0 +1,124 @@
+name: vinoGram Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Installer version (for example 0.1.0)
+        required: true
+        default: '0.1.0'
+        type: string
+  push:
+    tags:
+      - 'vinogram-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vinogram-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: '3'
+  PYTHONUTF8: '1'
+
+jobs:
+  foundation:
+    name: Base libraries and tools
+    runs-on: windows-2025
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: TBuild/vinoGram
+          persist-credentials: false
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-windows-env
+      - name: Check release tooling
+        shell: pwsh
+        run: python C:/TBuild/vinoGram/tools/release/windows/test_ci.py
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-dependencies
+        with:
+          group: foundation
+
+  qt:
+    name: Qt
+    needs: foundation
+    runs-on: windows-2025
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: TBuild/vinoGram
+          persist-credentials: false
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-windows-env
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-dependencies
+        with:
+          group: foundation
+          restore-only: 'true'
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-dependencies
+        with:
+          group: qt
+
+  engine:
+    name: WebRTC and Rust libraries
+    needs: foundation
+    runs-on: windows-2025
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: TBuild/vinoGram
+          persist-credentials: false
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-windows-env
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-dependencies
+        with:
+          group: foundation
+          restore-only: 'true'
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-dependencies
+        with:
+          group: engine
+
+  release:
+    name: Client and installer
+    needs: [qt, engine]
+    runs-on: windows-2025
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: TBuild/vinoGram
+          persist-credentials: false
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-windows-env
+        with:
+          submodules: 'true'
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-dependencies
+        with:
+          group: foundation
+          restore-only: 'true'
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-dependencies
+        with:
+          group: qt
+          restore-only: 'true'
+      - uses: ./TBuild/vinoGram/.github/actions/vinogram-dependencies
+        with:
+          group: engine
+          restore-only: 'true'
+      - name: Build Release
+        shell: pwsh
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+          VINOGRAM_VERSION: ${{ inputs.version || github.ref_name }}
+        run: python C:/TBuild/vinoGram/tools/release/windows/ci.py build
+      - name: Package installer and portable ZIP
+        shell: pwsh
+        run: python C:/TBuild/vinoGram/tools/release/windows/ci.py package
+      - name: Upload downloadable packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: vinoGram-windows-x64-${{ inputs.version || github.ref_name }}
+          path: C:/TBuild/vinoGram/out/release-dist/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

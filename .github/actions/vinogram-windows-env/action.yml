@@ -1,0 +1,38 @@
+name: vinoGram Windows environment
+description: Select the pinned Windows toolchain and stable dependency paths
+inputs:
+  submodules:
+    description: Fetch client source submodules
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Stable build paths
+      shell: pwsh
+      run: |
+        $target = Join-Path $env:GITHUB_WORKSPACE 'TBuild'
+        New-Item -ItemType Directory -Path "$target/Libraries/win64" -Force | Out-Null
+        New-Item -ItemType Directory -Path "$target/ThirdParty" -Force | Out-Null
+        if (Test-Path -LiteralPath 'C:/TBuild') { throw 'C:/TBuild is already in use' }
+        New-Item -ItemType Junction -Path 'C:/TBuild' -Target $target | Out-Null
+        git config --global core.longpaths true
+        git config --global user.name 'vinoGram CI'
+        git config --global user.email 'vinogram-ci@users.noreply.github.com'
+    - uses: Eden-CI/msvc-dev-cmd@1bd71f95d6f3d1b2b3395b335cc63bcdc90cf223
+      with:
+        arch: x64
+        sdk: '10.0.26100.0'
+        toolset: '14.44'
+    - name: Build settings
+      shell: pwsh
+      run: |
+        'CMAKE_GENERATOR=Ninja Multi-Config' >> $env:GITHUB_ENV
+        'VSLANG=1033' >> $env:GITHUB_ENV
+        'QT=6.11.2' >> $env:GITHUB_ENV
+    - name: Client submodules
+      if: inputs.submodules == 'true'
+      shell: pwsh
+      working-directory: C:/TBuild/vinoGram
+      run: |
+        git submodule update --init --depth=1
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
