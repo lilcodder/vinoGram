@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import stat
 from pathlib import Path
 import tempfile
 import unittest
@@ -67,6 +68,18 @@ class ReleaseChecks(unittest.TestCase):
         for index, group in enumerate(groups):
             for other in groups[index + 1:]:
                 self.assertFalse(group & other)
+
+    def test_pruning_removes_read_only_git_pack_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            libraries = Path(directory) / 'Libraries'
+            folder = libraries / 'lzma'
+            pack = folder / '.git/objects/pack/test.idx'
+            pack.parent.mkdir(parents=True)
+            pack.write_bytes(b'git pack index')
+            pack.chmod(stat.S_IREAD)
+            with patch.object(ci, 'LIBRARIES', libraries):
+                ci.prune_library(folder)
+            self.assertFalse(pack.exists())
 
 
 if __name__ == '__main__':

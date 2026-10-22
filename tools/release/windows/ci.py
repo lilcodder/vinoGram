@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import zipfile
@@ -60,7 +61,14 @@ def prune_library(folder):
             or '/src/wallet_engine/' in '/' + relative
         )
         if not keep:
-            path.unlink()
+            try:
+                path.unlink()
+            except PermissionError:
+                try:
+                    path.chmod(path.stat().st_mode | stat.S_IWRITE)
+                    path.unlink()
+                except PermissionError:
+                    print('Retaining locked cache file:', path, flush=True)
 
 
 def prepare(group):
