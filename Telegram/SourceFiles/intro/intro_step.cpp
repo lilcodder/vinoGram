@@ -419,71 +419,29 @@ void Step::paintContentSnapshot(QPainter &p, const QPixmap &snapshot, float64 al
 }
 
 void Step::prepareCoverMask() {
-	if (!_coverMask.isNull()) return;
-
-	auto maskWidth = style::DevicePixelRatio();
-	auto maskHeight = st::introCoverHeight * style::DevicePixelRatio();
-	auto mask = QImage(maskWidth, maskHeight, QImage::Format_ARGB32_Premultiplied);
-	auto maskInts = reinterpret_cast<uint32*>(mask.bits());
-	Assert(mask.depth() == (sizeof(uint32) << 3));
-	auto maskIntsPerLineAdded = (mask.bytesPerLine() >> 2) - maskWidth;
-	Assert(maskIntsPerLineAdded >= 0);
-	auto realHeight = static_cast<float64>(maskHeight - 1);
-	for (auto y = 0; y != maskHeight; ++y) {
-		auto color = anim::color(st::introCoverTopBg, st::introCoverBottomBg, y / realHeight);
-		auto colorInt = anim::getPremultiplied(color);
-		for (auto x = 0; x != maskWidth; ++x) {
-			*maskInts++ = colorInt;
-		}
-		maskInts += maskIntsPerLineAdded;
+	if (_coverMask.isNull()) {
+		_coverMask = QPixmap(u":/gui/art/intro_banner.png"_q);
 	}
-	_coverMask = Ui::PixmapFromImage(std::move(mask));
 }
 
 void Step::paintCover(QPainter &p, int top) {
-	auto coverHeight = top + st::introCoverHeight;
-	if (coverHeight > 0) {
-		p.drawPixmap(
-			QRect(0, 0, width(), coverHeight),
-			_coverMask,
-			QRect(
-				0,
-				-top * style::DevicePixelRatio(),
-				_coverMask.width(),
-				coverHeight * style::DevicePixelRatio()));
+	const auto coverHeight = top + st::introCoverHeight;
+	if (coverHeight <= 0) {
+		return;
 	}
-
-	auto left = 0;
-	auto right = 0;
-	if (width() < st::introCoverMaxWidth) {
-		auto iconsMaxSkip = st::introCoverMaxWidth - st::introCoverLeft.width() - st::introCoverRight.width();
-		auto iconsSkip = st::introCoverIconsMinSkip + (iconsMaxSkip - st::introCoverIconsMinSkip) * (width() - st::introStepWidth) / (st::introCoverMaxWidth - st::introStepWidth);
-		auto outside = iconsSkip + st::introCoverLeft.width() + st::introCoverRight.width() - width();
-		left = -outside / 2;
-		right = -outside - left;
-	}
-	if (top < 0) {
-		auto shown = float64(coverHeight) / st::introCoverHeight;
-		const auto leftFull = left + st::introCoverLeft.width();
-		auto leftShown = int(base::SafeRound(shown * leftFull));
-		left = leftShown - st::introCoverLeft.width();
-		const auto rightFull = right + st::introCoverRight.width();
-		auto rightShown = int(base::SafeRound(shown * rightFull));
-		right = rightShown - st::introCoverRight.width();
-	}
-	st::introCoverLeft.paint(p, left, coverHeight - st::introCoverLeft.height(), width());
-	st::introCoverRight.paint(p, width() - right - st::introCoverRight.width(), coverHeight - st::introCoverRight.height(), width());
-
-	auto planeLeft = (width() - st::introCoverIcon.width()) / 2 - st::introCoverIconLeft;
-	auto planeTop = top + st::introCoverIconTop;
-	if (top < 0 && !_hasCover) {
-		const auto ratio = float64(st::introPlaneWidth / st::introPlaneHeight);
-		auto deltaLeft = -int(base::SafeRound(ratio * top));
-//		auto deltaTop = top;
-		planeLeft += deltaLeft;
-	//	planeTop += top;
-	}
-	st::introCoverIcon.paint(p, planeLeft, planeTop, width());
+	const auto size = _coverMask.size().scaled(
+		QSize(width(), st::introCoverHeight),
+		Qt::KeepAspectRatioByExpanding);
+	const auto target = QRect(
+		(width() - size.width()) / 2,
+		top + (st::introCoverHeight - size.height()) / 2,
+		size.width(),
+		size.height());
+	p.save();
+	p.setClipRect(0, 0, width(), coverHeight, Qt::IntersectClip);
+	p.setRenderHint(QPainter::SmoothPixmapTransform);
+	p.drawPixmap(target, _coverMask);
+	p.restore();
 }
 
 int Step::contentLeft() const {

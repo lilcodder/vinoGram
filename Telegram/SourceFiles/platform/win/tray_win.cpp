@@ -89,15 +89,17 @@ bool DarkTasbarValueValid/* = false*/;
 [[nodiscard]] QImage MonochromeWithDot(QImage image, style::color color) {
 	auto p = QPainter(&image);
 	auto hq = PainterHighQualityEnabler(p);
-	const auto xm = image.width() / 16.;
-	const auto ym = image.height() / 16.;
-	p.setBrush(color);
+	const auto xm = image.width();
+	const auto ym = image.height();
+	p.setBrush(color->c == st::trayCounterBgMute->c
+		? QColor(217, 217, 217)
+		: QColor(112, 30, 62));
 	p.setPen(Qt::NoPen);
-	p.drawEllipse(QRectF( // cx=3.9, cy=12.7, r=2.2
-		1.7 * xm,
-		10.5 * ym,
-		4.4 * xm,
-		4.4 * ym));
+	p.drawEllipse(QRectF(
+		27. * xm / 559.,
+		368. * ym / 559.,
+		160. * xm / 559.,
+		160. * ym / 559.));
 	return image;
 }
 
@@ -271,7 +273,7 @@ void Tray::addAction(rpl::producer<QString> text, Fn<void()> &&callback) {
 void Tray::showTrayMessage() const {
 	if (!cSeenTrayTooltip() && _icon) {
 		_icon->showMessage(
-			AppName.utf16(),
+			u"vinoGram"_q,
 			tr::lng_tray_icon_text(tr::now),
 			QIcon(),
 			QPlatformSystemTrayIcon::Information,

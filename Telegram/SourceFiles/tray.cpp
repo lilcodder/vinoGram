@@ -10,7 +10,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "core/application.h"
 #include "core/core_settings.h"
-#include "core/version.h"
 #include "platform/platform_notifications_manager.h"
 #include "platform/platform_specific.h"
 #include "lang/lang_keys.h"
@@ -22,8 +21,8 @@ namespace Core {
 QString TrayIconToolTip() {
 	const auto counter = Core::App().unreadBadge();
 	return (counter > 0)
-		? u"%1 (%2)"_q.arg(AppName.utf16()).arg(counter)
-		: AppName.utf16();
+		? u"%1 (%2)"_q.arg(u"vinoGram"_q).arg(counter)
+		: u"vinoGram"_q;
 }
 
 Tray::Tray() {

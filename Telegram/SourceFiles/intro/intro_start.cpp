@@ -24,8 +24,10 @@ StartWidget::StartWidget(
 	not_null<Data*> data)
 : Step(parent, account, data, true) {
 	setMouseTracking(true);
-	setTitleText(rpl::single(u"Telegram Desktop"_q));
-	setDescriptionText(tr::lng_intro_about());
+	setTitleText(rpl::single(u"vinoGram"_q));
+	// Keep fork branding independent of cloud language packs.
+	setDescriptionText(rpl::single(
+		Lang::GetOriginalValue(tr::lng_intro_about.base)));
 	show();
 }
 
