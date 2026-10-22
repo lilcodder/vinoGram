@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "core/application.h"
 #include "core/core_settings.h"
+#include "core/proxy_subscription.h"
 #include "main/main_account.h"
 #include "main/main_domain.h"
 #include "mtproto/facade.h"
@@ -47,6 +48,9 @@ void ProxyRotationManager::handleConnectionStateChanged(
 }
 
 bool ProxyRotationManager::shouldObserve() const {
+	if (ProxySubscriptionsActive()) {
+		return false;
+	}
 	const auto &settings = App().settings().proxy();
 	return settings.isEnabled()
 		&& settings.selected()

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/connection_box.h"
+#include "boxes/proxy_subscription_box.h"
 
 #include "base/call_delayed.h"
 #include "base/qt/qt_key_modifiers.h"
@@ -1178,6 +1179,13 @@ void ProxiesBox::setupTopButton() {
 
 void ProxiesBox::setupContent() {
 	const auto inner = setInnerWidget(object_ptr<Ui::VerticalLayout>(this));
+
+	const auto subscription = inner->add(
+		object_ptr<Ui::SettingsButton>(
+			inner, rpl::single(u"Subscribtion"_q), st::settingsButton));
+	subscription->setClickedCallback([=] {
+		getDelegate()->show(ProxySubscriptionBox());
+	});
 
 	_tryIPv6 = inner->add(
 		object_ptr<Ui::Checkbox>(

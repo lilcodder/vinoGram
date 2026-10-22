@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/local_url_handlers.h"
 #include "core/launcher.h"
 #include "core/proxy_rotation_manager.h"
+#include "core/proxy_subscription.h"
 #include "core/ui_integration.h"
 #include "core/version.h"
 #include "chat_helpers/emoji_keywords.h"
@@ -159,6 +160,7 @@ struct Application::Private {
 	UiIntegration uiIntegration;
 	Settings settings;
 	std::unique_ptr<ProxyRotationManager> proxyRotation;
+	std::unique_ptr<ProxySubscriptionManager> proxySubscription;
 };
 
 Application::Application()
@@ -284,6 +286,7 @@ Application::~Application() {
 	// Domain::finish() and there is a violation on Ensures(started()).
 	closeAdditionalWindows();
 
+	_private->proxySubscription = nullptr;
 	_private->proxyRotation = nullptr;
 	_domain->finish();
 	MTP::WebProxy::Transport::Shutdown();
@@ -558,6 +561,9 @@ void Application::startDomain() {
 }
 
 void Application::startSettingsAndBackground() {
+	if (!_private->proxySubscription) {
+		_private->proxySubscription = std::make_unique<ProxySubscriptionManager>();
+	}
 	Local::rewriteSettingsIfNeeded();
 	Window::Theme::Background()->start();
 	checkSystemDarkMode();

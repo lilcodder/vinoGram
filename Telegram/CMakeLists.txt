@@ -561,6 +561,12 @@ PRIVATE
     core/application.h
     core/proxy_rotation_manager.cpp
     core/proxy_rotation_manager.h
+    core/proxy_subscription.cpp
+    core/proxy_subscription.h
+    core/proxy_subscription_config.cpp
+    core/proxy_subscription_config.h
+    boxes/proxy_subscription_box.cpp
+    boxes/proxy_subscription_box.h
     core/cached_webview_availability.h
     core/bank_card_click_handler.cpp
     core/bank_card_click_handler.h
@@ -2748,6 +2754,7 @@ if (MSVC)
     target_link_libraries(Telegram
     PRIVATE
         delayimp
+        dnsapi
     )
     target_link_options(Telegram
     PRIVATE
