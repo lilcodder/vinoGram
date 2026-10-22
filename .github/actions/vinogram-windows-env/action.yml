@@ -36,3 +36,10 @@ runs:
       run: |
         git submodule update --init --depth=1
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    - name: Qt build helper submodule
+      if: inputs.submodules != 'true'
+      shell: pwsh
+      working-directory: C:/TBuild/vinoGram
+      run: |
+        git submodule update --init --depth=1 cmake
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
