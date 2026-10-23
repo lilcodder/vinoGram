@@ -16,6 +16,7 @@ spec.loader.exec_module(ci)
 
 
 class ReleaseChecks(unittest.TestCase):
+    @unittest.skipUnless(os.name == 'nt', 'Requires Windows cmd.exe')
     def test_batch_failures_inside_parentheses_stop_preparation(self):
         script = ci.ROOT / 'Telegram/build/prepare/prepare.py'
         tree = ast.parse(script.read_text(encoding='utf-8'))
@@ -30,6 +31,20 @@ class ReleaseChecks(unittest.TestCase):
                 result = subprocess.run([os.environ['COMSPEC'], '/d', '/c', str(batch)], capture_output=True, text=True)
                 self.assertEqual(result.returncode == 0, status == 0)
                 self.assertEqual('FINISHED' in result.stdout, status == 0)
+
+    def test_qt_uses_the_configurations_installed_by_the_recipe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            libraries = Path(directory)
+            qt = libraries / 'Qt-6.11.2/lib'
+            qt.mkdir(parents=True)
+            for module in ['Core', 'Network', 'Gui', 'Widgets']:
+                (qt / f'Qt6{module}.lib').touch()
+            with patch.object(ci, 'LIBRARIES', libraries), patch.object(ci, 'run_prepare') as recipe, patch.object(ci, 'run', side_effect=AssertionError('Qt is already built and installed')):
+                ci.prepare('qt')
+                recipe.assert_called_once_with(ci.GROUPS['qt'])
+                (qt / 'Qt6Widgets.lib').unlink()
+                with self.assertRaisesRegex(RuntimeError, 'Qt6Widgets.lib'):
+                    ci.prepare('qt')
 
     def test_legacy_caches_are_limited_to_verified_inputs_and_groups(self):
         self.assertTrue(ci.legacy_cache_key('foundation'))

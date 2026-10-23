@@ -12,6 +12,14 @@ Windows compatibility patches before saving the new cache. Qt is rebuilt.
 The compatibility fingerprint covers the preparation scripts and CI helper;
 changing those inputs disables the old-cache fallback automatically.
 
+Qt's preparation recipe builds and installs Debug and RelWithDebInfo. The CI
+helper validates the installed libraries without requesting a separate Release
+configuration, which Qt's debug-and-release configuration does not generate.
+
+Changes to Windows release tooling or dependency recipes on `codex/initial-mvp`
+start a build automatically with installer version `0.1.0`. Manual runs and
+`vinogram-v*` tags still select their requested version.
+
 Set repository secrets `TDESKTOP_API_ID` and `TDESKTOP_API_HASH` before running.
 Credentials are never embedded in workflow files, cached dependency groups,
 or uploaded build directories. The packaged executable uses these credentials.

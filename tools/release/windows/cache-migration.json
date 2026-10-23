@@ -1,7 +1,7 @@
 {
-  "compatible_inputs": "fe9976ab580373ec225ec720223432624e76293771ddbaeee7ee529f171effb0",
+  "compatible_inputs": "20cbe69b3a451b4580becd58c361834b054805ef3b8211d111932909534af42b",
   "keys": {
-    "foundation": "vinogram-win-x64-v1-foundation-d74a41fbf671397be19dcd7c8dfd5d8ddcd61dab11cfd1123daa43f3a011684d",
-    "engine": "vinogram-win-x64-v1-engine-d74a41fbf671397be19dcd7c8dfd5d8ddcd61dab11cfd1123daa43f3a011684d"
+    "foundation": "vinogram-win-x64-v1-foundation-33bf29a58554538f633d09699620c5e3f5dcd566130d475921e4d113cddccd6a",
+    "engine": "vinogram-win-x64-v1-engine-33bf29a58554538f633d09699620c5e3f5dcd566130d475921e4d113cddccd6a"
   }
 }

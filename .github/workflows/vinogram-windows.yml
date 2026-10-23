@@ -9,6 +9,14 @@ on:
         default: '0.1.0'
         type: string
   push:
+    branches:
+      - 'codex/initial-mvp'
+    paths:
+      - '.github/workflows/vinogram-windows.yml'
+      - '.github/actions/vinogram-*/**'
+      - 'tools/release/windows/**'
+      - 'Telegram/build/prepare/**'
+      - 'Telegram/build/qt_version.py'
     tags:
       - 'vinogram-v*'
 
@@ -22,6 +30,7 @@ concurrency:
 env:
   CMAKE_BUILD_PARALLEL_LEVEL: '3'
   PYTHONUTF8: '1'
+  VINOGRAM_VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '0.1.0' }}
 
 jobs:
   foundation:
@@ -109,7 +118,6 @@ jobs:
         env:
           TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
           TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
-          VINOGRAM_VERSION: ${{ inputs.version || github.ref_name }}
         run: python C:/TBuild/vinoGram/tools/release/windows/ci.py build
       - name: Package installer and portable ZIP
         shell: pwsh
@@ -117,7 +125,7 @@ jobs:
       - name: Upload downloadable packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: vinoGram-windows-x64-${{ inputs.version || github.ref_name }}
+          name: vinoGram-windows-x64-${{ env.VINOGRAM_VERSION }}
           path: C:/TBuild/vinoGram/out/release-dist/*
           if-no-files-found: error
           retention-days: 14

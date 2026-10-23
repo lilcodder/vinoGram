@@ -96,9 +96,6 @@ def legacy_cache_key(group):
 
 def prepare(group):
     run_prepare(GROUPS[group])
-    if group == 'qt':
-        run(['cmake', '--build', LIBRARIES / 'qt_6.11.2', '--config', 'Release', '--parallel', '3'])
-        run(['cmake', '--install', LIBRARIES / 'qt_6.11.2', '--config', 'Release'])
     expected = {
         'foundation': ['zlib/Release/libzs.lib', 'mozjpeg/Release/jpeg-static.lib',
                        'openssl3/out/libcrypto.lib', 'tg_angle/out/Release/tg_angle.lib'],
