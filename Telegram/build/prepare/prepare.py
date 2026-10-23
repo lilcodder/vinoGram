@@ -355,18 +355,20 @@ def winFailOnEach(command):
     result = ''
     startingCommand = True
     for command in commands:
+        if not command.strip():
+            continue
         command = re.sub(r'\$([A-Za-z0-9_]+)', r'%\1%', command)
         if re.search(r'\$[^<]', command):
             error('Bad command: ' + command)
-        appendCall = startingCommand and not re.match(r'(if|for) ', command)
+        appendCall = startingCommand and not re.match(r'\s*(?:(if|for|exit)(?:\s|$)|[()])', command)
         called = 'call ' + command if appendCall else command
         result = result + called
         if command.endswith('^'):
             startingCommand = False
         else:
             startingCommand = True
-            result = result + '\r\nif %errorlevel% neq 0 exit /b %errorlevel%\r\n'
-    return result
+            result = result + '\r\nif errorlevel 1 goto :prepare_failed\r\n'
+    return result + '\r\nexit /b 0\r\n:prepare_failed\r\nexit /b 1\r\n'
 
 def printCommands(commands):
     print('---------------------------------COMMANDS-LIST----------------------------------')
@@ -1588,7 +1590,7 @@ if win and qt >= '6':
 win32_win64:
     git clone https://github.com/desktop-app/qt6_windows7_patches.git qt6_windows7
     cd qt6_windows7
-    git checkout 8a9190c5345b0ddc6ec0d5830627a15155828da5
+    git checkout 1ff0afa412b35d141a37731411e96b5dc3a9a83a
 """)
 
 if win:

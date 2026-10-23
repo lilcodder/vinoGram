@@ -1,6 +1,9 @@
+import ast
 import importlib.util
 import os
+import re
 import stat
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -13,6 +16,30 @@ spec.loader.exec_module(ci)
 
 
 class ReleaseChecks(unittest.TestCase):
+    def test_batch_failures_inside_parentheses_stop_preparation(self):
+        script = ci.ROOT / 'Telegram/build/prepare/prepare.py'
+        tree = ast.parse(script.read_text(encoding='utf-8'))
+        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'winFailOnEach')
+        namespace = {'re': re}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), str(script), 'exec'), namespace)
+        with tempfile.TemporaryDirectory() as directory:
+            batch = Path(directory) / 'check.cmd'
+            for status in [0, 23]:
+                commands = f'for %%i in (first second) do (\ncmd /c exit {status}\nif errorlevel 1 (\necho FAILED\nexit /b 1\n)\n)\necho FINISHED\n'
+                batch.write_bytes(('@echo off\r\n' + namespace['winFailOnEach'](commands)).encode('utf-8'))
+                result = subprocess.run([os.environ['COMSPEC'], '/d', '/c', str(batch)], capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, status == 0)
+                self.assertEqual('FINISHED' in result.stdout, status == 0)
+
+    def test_legacy_caches_are_limited_to_verified_inputs_and_groups(self):
+        self.assertTrue(ci.legacy_cache_key('foundation'))
+        self.assertTrue(ci.legacy_cache_key('engine'))
+        self.assertEqual(ci.legacy_cache_key('qt'), '')
+        with patch.object(ci.hashlib, 'sha256') as digest:
+            digest.return_value.hexdigest.return_value = 'changed'
+            digest.return_value.digest.return_value = b'changed'
+            self.assertEqual(ci.legacy_cache_key('foundation'), '')
+
     def test_versions_cannot_be_shell_commands_or_paths(self):
         for value in ['0.1.0', 'vinogram-v1.2.3']:
             with patch.dict(os.environ, {'VINOGRAM_VERSION': value}):

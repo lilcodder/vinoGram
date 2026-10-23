@@ -6,6 +6,12 @@ the WebRTC/Rust group in parallel, then compiles and packages the client.
 Each dependency group has its own cache, saved before the client build.
 The first run is a full dependency build; subsequent runs reuse these caches.
 
+`cache-migration.json` permits reusing the previously verified base and engine
+caches after the Qt patch correction. Restored base sources refresh the pinned
+Windows compatibility patches before saving the new cache. Qt is rebuilt.
+The compatibility fingerprint covers the preparation scripts and CI helper;
+changing those inputs disables the old-cache fallback automatically.
+
 Set repository secrets `TDESKTOP_API_ID` and `TDESKTOP_API_HASH` before running.
 Credentials are never embedded in workflow files, cached dependency groups,
 or uploaded build directories. The packaged executable uses these credentials.

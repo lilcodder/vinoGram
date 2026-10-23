@@ -1,0 +1,7 @@
+{
+  "compatible_inputs": "763147049cd077cbcc4153c642de128d162076c9fc38caf520aefa54f9d91b35",
+  "keys": {
+    "foundation": "vinogram-win-x64-v1-foundation-d74a41fbf671397be19dcd7c8dfd5d8ddcd61dab11cfd1123daa43f3a011684d",
+    "engine": "vinogram-win-x64-v1-engine-d74a41fbf671397be19dcd7c8dfd5d8ddcd61dab11cfd1123daa43f3a011684d"
+  }
+}

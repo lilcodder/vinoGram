@@ -71,14 +71,31 @@ def prune_library(folder):
                     print('Retaining locked cache file:', path, flush=True)
 
 
-def prepare(group):
+def run_prepare(stages):
     if os.name != 'nt' or os.environ.get('Platform', '').lower() != 'x64':
         raise RuntimeError('Use an x64 MSVC 14.44 developer environment')
     environment = os.environ.copy()
     environment['CMAKE_GENERATOR'] = 'Ninja Multi-Config'
     environment['QT_ANGLE_CMAKE'] = str(ROOT / 'cmake/external/angle/qt.cmake')
     script = ROOT / 'Telegram/build/prepare/prepare.py'
-    run([sys.executable, script, 'silent', *GROUPS[group]], environment=environment)
+    run([sys.executable, script, 'silent', *stages], environment=environment)
+
+
+def legacy_cache_key(group):
+    migration = json.loads(Path(__file__).with_name('cache-migration.json').read_text(encoding='utf-8'))
+    inputs = [*(ROOT / 'Telegram/build/prepare').rglob('*'),
+              ROOT / 'Telegram/build/qt_version.py', Path(__file__).resolve()]
+    digest = hashlib.sha256()
+    for path in sorted(p for p in inputs if p.is_file() and '__pycache__' not in p.parts):
+        digest.update(path.relative_to(ROOT).as_posix().encode('utf-8'))
+        digest.update(hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).digest())
+    if digest.hexdigest() != migration['compatible_inputs']:
+        return ''
+    return migration['keys'].get(group, '')
+
+
+def prepare(group):
+    run_prepare(GROUPS[group])
     if group == 'qt':
         run(['cmake', '--build', LIBRARIES / 'qt_6.11.2', '--config', 'Release', '--parallel', '3'])
         run(['cmake', '--install', LIBRARIES / 'qt_6.11.2', '--config', 'Release'])
@@ -184,7 +201,7 @@ def package():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['paths', 'prepare', 'build', 'package'])
+    parser.add_argument('command', choices=['paths', 'prepare', 'refresh-foundation', 'build', 'package'])
     parser.add_argument('group', nargs='?', choices=GROUPS)
     args = parser.parse_args()
     if args.command in {'paths', 'prepare'} and not args.group:
@@ -194,8 +211,11 @@ def main():
             output.write('paths<<VINOGRAM_CACHE_PATHS\n')
             output.write('\n'.join(str(path) for path in cache_paths(args.group)))
             output.write('\nVINOGRAM_CACHE_PATHS\n')
+            output.write(f'legacy-key={legacy_cache_key(args.group)}\n')
     elif args.command == 'prepare':
         prepare(args.group)
+    elif args.command == 'refresh-foundation':
+        run_prepare(['qt6_windows7'])
     elif args.command == 'build':
         build()
     else:

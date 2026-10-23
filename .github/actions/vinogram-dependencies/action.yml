@@ -22,12 +22,17 @@ runs:
       with:
         path: ${{ steps.paths.outputs.paths }}
         key: vinogram-win-x64-v1-${{ inputs.group }}-${{ hashFiles('TBuild/vinoGram/Telegram/build/prepare/**', 'TBuild/vinoGram/Telegram/build/qt_version.py', 'TBuild/vinoGram/tools/release/windows/ci.py') }}
+        restore-keys: ${{ steps.paths.outputs.legacy-key }}
     - name: Require prepared dependencies
-      if: inputs.restore-only == 'true' && steps.cache.outputs.cache-hit != 'true'
+      if: inputs.restore-only == 'true' && steps.cache.outputs.cache-matched-key == ''
       shell: pwsh
       run: throw 'Dependency cache is missing. Re-run the full workflow to rebuild it.'
+    - name: Refresh Qt patches in the compatible base cache
+      if: inputs.group == 'foundation' && steps.paths.outputs.legacy-key != '' && steps.cache.outputs.cache-matched-key == steps.paths.outputs.legacy-key
+      shell: pwsh
+      run: python C:/TBuild/vinoGram/tools/release/windows/ci.py refresh-foundation
     - name: Build dependency group
-      if: inputs.restore-only != 'true' && steps.cache.outputs.cache-hit != 'true'
+      if: inputs.restore-only != 'true' && steps.cache.outputs.cache-matched-key == ''
       shell: pwsh
       env:
         DEPENDENCY_GROUP: ${{ inputs.group }}
