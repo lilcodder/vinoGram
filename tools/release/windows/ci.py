@@ -137,6 +137,7 @@ def build():
         run([
             'cmake', '-S', ROOT, '-B', OUT, '-G', 'Ninja Multi-Config', '-C', cache,
             '-DCMAKE_CONFIGURATION_TYPES=Release', '-Dqt_requested=6.11.2',
+            '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=',
             '-DTDESKTOP_API_TEST=OFF', '-DDESKTOP_APP_DISABLE_AUTOUPDATE=ON',
             '-DDESKTOP_APP_DISABLE_CRASH_REPORTS=ON', '-DDESKTOP_APP_ENABLE_LTO=OFF',
         ])

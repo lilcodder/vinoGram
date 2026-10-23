@@ -6,15 +6,21 @@ the WebRTC/Rust group in parallel, then compiles and packages the client.
 Each dependency group has its own cache, saved before the client build.
 The first run is a full dependency build; subsequent runs reuse these caches.
 
-`cache-migration.json` permits reusing the previously verified base and engine
-caches after the Qt patch correction. Restored base sources refresh the pinned
-Windows compatibility patches before saving the new cache. Qt is rebuilt.
+`cache-migration.json` permits reusing the previously verified base, engine and
+Qt caches when only client release settings change. Restored base sources refresh
+the pinned Windows compatibility patches before saving the new cache.
 The compatibility fingerprint covers the preparation scripts and CI helper;
 changing those inputs disables the old-cache fallback automatically.
 
 Qt's preparation recipe builds and installs Debug and RelWithDebInfo. The CI
 helper validates the installed libraries without requesting a separate Release
 configuration, which Qt's debug-and-release configuration does not generate.
+
+The client Release disables MSVC debug information and final PDB generation.
+This avoids combining dependency debug symbols into a large PDB at the final
+link, which previously failed with LNK1102 on the hosted Windows runner. Local
+Debug builds keep their existing settings. A small MSVC build checks the
+generated compiler/linker flags and confirms that no PDB is produced.
 
 Changes to Windows release tooling or dependency recipes on `codex/initial-mvp`
 start a build automatically with installer version `0.1.0`. Manual runs and

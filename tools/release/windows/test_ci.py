@@ -2,6 +2,7 @@ import ast
 import importlib.util
 import os
 import re
+import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -49,11 +50,49 @@ class ReleaseChecks(unittest.TestCase):
     def test_legacy_caches_are_limited_to_verified_inputs_and_groups(self):
         self.assertTrue(ci.legacy_cache_key('foundation'))
         self.assertTrue(ci.legacy_cache_key('engine'))
-        self.assertEqual(ci.legacy_cache_key('qt'), '')
+        self.assertTrue(ci.legacy_cache_key('qt'))
+        self.assertEqual(ci.legacy_cache_key('unknown'), '')
         with patch.object(ci.hashlib, 'sha256') as digest:
             digest.return_value.hexdigest.return_value = 'changed'
             digest.return_value.digest.return_value = b'changed'
             self.assertEqual(ci.legacy_cache_key('foundation'), '')
+
+    @unittest.skipUnless(os.name == 'nt' and os.environ.get('Platform', '').lower() == 'x64', 'Requires x64 MSVC')
+    def test_release_link_does_not_generate_a_full_pdb(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            environment = {
+                'TDESKTOP_API_ID': '1', 'TDESKTOP_API_HASH': '0' * 32,
+                'VINOGRAM_VERSION': '0.1.0', 'RUNNER_TEMP': directory,
+            }
+            with patch.dict(os.environ, environment), patch.object(ci, 'OUT', root / 'out'), patch.object(ci, 'run') as commands:
+                ci.build()
+            configure = commands.call_args_list[0].args[0]
+            option = '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT='
+            self.assertIn(option, configure)
+            source = root / 'probe'
+            source.mkdir()
+            (source / 'main.cpp').write_text('int main() { return 0; }\n', encoding='utf-8')
+            (source / 'CMakeLists.txt').write_text(
+                'cmake_minimum_required(VERSION 3.25)\n'
+                'project(LinkProbe LANGUAGES CXX)\n'
+                'set(build_win64 ON)\n'
+                f'include("{ci.ROOT.as_posix()}/cmake/variables.cmake")\n'
+                'add_library(common_options INTERFACE)\n'
+                f'include("{ci.ROOT.as_posix()}/cmake/options_win.cmake")\n'
+                'add_executable(probe main.cpp)\n'
+                'target_link_libraries(probe PRIVATE common_options)\n', encoding='utf-8')
+            binary = root / 'probe-build'
+            cmake = shutil.which('cmake')
+            subprocess.run([cmake, '-S', str(source), '-B', str(binary), '-G', 'Ninja Multi-Config',
+                            '-DCMAKE_CONFIGURATION_TYPES=Release', option], check=True, capture_output=True)
+            ninja = (binary / 'CMakeFiles/impl-Release.ninja').read_text(encoding='utf-8')
+            self.assertIn('/DEBUG:NONE', ninja)
+            self.assertNotRegex(ninja, r'/DEBUG(?:\s|:FULL)')
+            self.assertNotRegex(ninja, r'/(?:Z7|Zi|ZI)\b')
+            subprocess.run([cmake, '--build', str(binary), '--config', 'Release'], check=True, capture_output=True)
+            self.assertTrue((binary / 'Release/probe.exe').is_file())
+            self.assertFalse(list(binary.rglob('*.pdb')))
 
     def test_versions_cannot_be_shell_commands_or_paths(self):
         for value in ['0.1.0', 'vinogram-v1.2.3']:
