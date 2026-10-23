@@ -367,7 +367,7 @@ def winFailOnEach(command):
             startingCommand = False
         else:
             startingCommand = True
-            result = result + '\r\nif errorlevel 1 goto :prepare_failed\r\n'
+            result = result + '\r\nif errorlevel 1 goto :prepare_failed\r\nif not errorlevel 0 goto :prepare_failed\r\n'
     return result + '\r\nexit /b 0\r\n:prepare_failed\r\nexit /b 1\r\n'
 
 def printCommands(commands):

@@ -24,7 +24,7 @@ class ReleaseChecks(unittest.TestCase):
         exec(compile(ast.Module(body=[function], type_ignores=[]), str(script), 'exec'), namespace)
         with tempfile.TemporaryDirectory() as directory:
             batch = Path(directory) / 'check.cmd'
-            for status in [0, 23]:
+            for status in [0, 23, -1]:
                 commands = f'for %%i in (first second) do (\ncmd /c exit {status}\nif errorlevel 1 (\necho FAILED\nexit /b 1\n)\n)\necho FINISHED\n'
                 batch.write_bytes(('@echo off\r\n' + namespace['winFailOnEach'](commands)).encode('utf-8'))
                 result = subprocess.run([os.environ['COMSPEC'], '/d', '/c', str(batch)], capture_output=True, text=True)
