@@ -1,6 +1,6 @@
 # vinoGram
 
-vinoGram — независимый Telegram-клиент для Windows на базе Telegram Desktop.
+vinoGram — независимый Telegram-клиент для Windows на базе Telegram Desktop и Telegram для Android.
 Проект находится на стадии MVP.
 
 В клиенте изменено оформление и добавлена кнопка **Subscribtion** в настройках
