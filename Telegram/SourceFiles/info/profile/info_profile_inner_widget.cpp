@@ -11,6 +11,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_memento.h"
 #include "info/info_wrap_widget.h"
 #include "info/profile/info_profile_widget.h"
+#include "info/profile/info_profile_avatar_shape.h"
+#include "ui/widgets/buttons.h"
+#include "window/window_session_controller.h"
 #include "info/profile/tabs/adapters/info_profile_tab_chats.h"
 #include "info/profile/tabs/adapters/info_profile_tab_media.h"
 #include "info/profile/tabs/adapters/info_profile_tab_members.h"
@@ -58,6 +61,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/vertical_list.h"
 #include "ui/ui_utility.h"
 #include "styles/style_info.h"
+#include "styles/style_settings.h"
 
 namespace Info {
 namespace Profile {
@@ -200,6 +204,16 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
 		if (const auto user = _peer->asUser()) {
 			AddUnofficialSecurityRiskWarning(result.data(), user);
 		}
+	}
+
+	if (_peer->isSelf() && !_savedMessages && !_topic && !_sublist) {
+		const auto shape = result->add(object_ptr<Ui::SettingsButton>(
+			result.data(),
+			rpl::single(u"Форма аватарки"_q),
+			st::settingsButton));
+		shape->setClickedCallback([=] {
+			_controller->parentController()->show(AvatarShapeBox(&_peer->session()));
+		});
 	}
 
 	auto stack = SectionStack(result.data());

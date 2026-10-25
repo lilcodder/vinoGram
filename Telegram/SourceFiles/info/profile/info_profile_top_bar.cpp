@@ -38,6 +38,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_peer_values.h"
 #include "data/data_peer.h"
 #include "data/data_photo.h"
+#include "data/components/avatar_shapes.h"
+#include "ui/effects/expressive_avatar.h"
 #include "data/data_saved_sublist.h"
 #include "data/data_session.h"
 #include "data/data_star_gift.h"
@@ -114,6 +116,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace Info::Profile {
 namespace {
+
+bool UsesProfileAvatar(TopBar::Source source, not_null<PeerData*> peer) {
+	return source == TopBar::Source::Profile
+		|| (source == TopBar::Source::Stories && peer->isSelf());
+}
 
 class Userpic final
 	: public Ui::AbstractButton
@@ -546,6 +553,22 @@ TopBar::TopBar(
 	setupButtons(controller, descriptor.source);
 	setupSwipeBack(controller);
 	setupUserpicButton(controller);
+	if (UsesProfileAvatar(_source, _peer) && _peer->isUser()
+		&& !_topic && !_savedMessages && !_key.sublist()) {
+		const auto user = peerToUser(_peer->id);
+		auto &shapes = _peer->session().avatarShapes();
+		shapes.changes() | rpl::filter([=](UserId changed) {
+			return changed == user;
+		}) | rpl::on_next([=] {
+			_userpicUniqueKey = InMemoryKey();
+			update();
+		}, lifetime());
+		const auto timer = lifetime().make_state<base::Timer>([=] {
+			if (isVisible()) _peer->session().avatarShapes().refresh(user);
+		});
+		timer->callEach(60000);
+		shapes.refresh(user);
+	}
 	if (_hasActions) {
 		_peer->session().changes().peerFlagsValue(
 			_peer,
@@ -2806,16 +2829,26 @@ void TopBar::paintUserpic(QPainter &p, const QRect &geometry) {
 		p.drawImage(geometry, _cachedUserpic);
 		return;
 	}
+	const auto shape = (UsesProfileAvatar(_source, _peer) && _peer->isUser()
+		&& !_topic && !_savedMessages && !_key.sublist())
+		? _peer->session().avatarShapes().shape(peerToUser(_peer->id))
+		: Data::AvatarShape::Circle;
+	const auto customShape = shape != Data::AvatarShape::Circle;
 	if (_videoUserpicPlayer && _videoUserpicPlayer->ready()) {
 		const auto size = st::infoProfileTopBarPhotoSize;
 		const auto paused = _gifPausedChecker();
 		const auto frame = _videoUserpicPlayer->frame(
 			Size(size),
 			_peer,
-			paused);
+			paused,
+			!customShape);
 		if (!frame.isNull()) {
 			auto hq = PainterHighQualityEnabler(p);
-			p.drawImage(geometry, frame);
+			if (customShape) {
+				Ui::PaintProfileAvatar(p, geometry, frame, shape, paused);
+			} else {
+				p.drawImage(geometry, frame);
+			}
 			return;
 		}
 	}
@@ -2849,7 +2882,8 @@ void TopBar::paintUserpic(QPainter &p, const QRect &geometry) {
 				_monoforumMask);
 			q.end();
 		} else {
-			const auto radius = (_source == Source::Community)
+			const auto radius = customShape ? std::optional<int>(0)
+				: (_source == Source::Community)
 				? std::optional<int>(
 					int(scaled * Ui::ForumUserpicRadiusMultiplier()))
 				: std::nullopt;
@@ -2873,7 +2907,11 @@ void TopBar::paintUserpic(QPainter &p, const QRect &geometry) {
 	}
 	{
 		auto hq = PainterHighQualityEnabler(p);
-		p.drawImage(geometry, _cachedUserpic);
+		if (customShape) {
+			Ui::PaintProfileAvatar(p, geometry, _cachedUserpic, shape, _gifPausedChecker());
+		} else {
+			p.drawImage(geometry, _cachedUserpic);
+		}
 	}
 	if (_uploadOverlay && _uploadOverlay->shown()) {
 		_uploadOverlay->paint(p, geometry, {

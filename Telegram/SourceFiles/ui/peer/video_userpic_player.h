@@ -30,7 +30,8 @@ public:
 	[[nodiscard]] QImage frame(
 		QSize size,
 		not_null<PeerData*> peer,
-		bool paused);
+		bool paused,
+		bool rounded = true);
 	[[nodiscard]] bool ready() const;
 
 private:

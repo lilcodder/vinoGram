@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/media/info_media_list_widget.h"
 #include "info/peer_gifts/info_peer_gifts_widget.h"
 #include "info/profile/info_profile_actions.h"
+#include "info/profile/info_profile_avatar_shape.h"
 #include "info/profile/info_profile_icon.h"
 #include "info/profile/info_profile_section_stack.h"
 #include "info/profile/info_profile_top_bar.h"
@@ -308,6 +309,14 @@ void InnerWidget::createProfileTop() {
 		_controller,
 		_peer,
 		_topBarColor.value());
+
+	const auto shape = _top->add(object_ptr<Ui::SettingsButton>(
+		_top,
+		rpl::single(u"Форма аватарки"_q),
+		st::settingsButton));
+	shape->setClickedCallback([=] {
+		_controller->parentController()->show(Profile::AvatarShapeBox(&_peer->session()));
+	});
 
 	using namespace Profile;
 	auto stack = SectionStack(_top);

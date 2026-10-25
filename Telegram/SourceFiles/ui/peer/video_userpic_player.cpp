@@ -51,7 +51,8 @@ void VideoUserpicPlayer::clear() {
 QImage VideoUserpicPlayer::frame(
 		QSize size,
 		not_null<PeerData*> peer,
-		bool paused) {
+		bool paused,
+		bool rounded) {
 	if (!_streamed
 		|| !_streamed->player().ready()
 		|| _streamed->player().videoSize().isEmpty()
@@ -64,7 +65,8 @@ QImage VideoUserpicPlayer::frame(
 
 	const auto broadcast = peer->monoforumBroadcast();
 
-	if (broadcast) {
+	if (!rounded) {
+	} else if (broadcast) {
 		if (_monoforumMask.isNull()) {
 			_monoforumMask = Ui::MonoforumShapeMask(request.resize);
 		}
@@ -83,7 +85,7 @@ QImage VideoUserpicPlayer::frame(
 	}
 
 	auto result = _streamed->frame(request);
-	if (broadcast) {
+	if (rounded && broadcast) {
 		constexpr auto kFormat = QImage::Format_ARGB32_Premultiplied;
 		if (result.format() != kFormat) {
 			result = std::move(result).convertToFormat(kFormat);

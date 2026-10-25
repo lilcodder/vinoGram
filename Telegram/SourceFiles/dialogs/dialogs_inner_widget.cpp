@@ -1793,7 +1793,8 @@ Ui::VideoUserpic *InnerWidget::validateVideoUserpic(not_null<Row*> row) {
 Ui::VideoUserpic *InnerWidget::validateVideoUserpic(
 		not_null<History*> history) {
 	const auto peer = history->peer;
-	if (!peer->isPremium()
+	if (peer->isUser()
+		|| !peer->isPremium()
 		|| peer->userpicPhotoUnknown()
 		|| !peer->userpicHasVideo()
 		|| peer->isSelf()

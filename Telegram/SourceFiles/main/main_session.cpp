@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/file_upload.h"
 #include "storage/storage_account.h"
 #include "storage/storage_facade.h"
+#include "data/components/avatar_shapes.h"
 #include "data/components/credits.h"
 #include "data/components/ephemeral_messages.h"
 #include "data/components/factchecks.h"
@@ -320,8 +321,16 @@ QByteArray Session::validTmpPassword() const {
 		: QByteArray();
 }
 
+Data::AvatarShapes &Session::avatarShapes() {
+	if (!_avatarShapes) {
+		_avatarShapes = std::make_unique<Data::AvatarShapes>(this);
+	}
+	return *_avatarShapes;
+}
+
 // Can be called only right before ~Session.
 void Session::finishLogout() {
+	avatarShapes().forgetAuthorization();
 	Wallet::CloseWallet(this);
 	unlockTerms();
 	data().clear();

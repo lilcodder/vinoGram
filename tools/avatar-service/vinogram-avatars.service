@@ -1,0 +1,28 @@
+[Unit]
+Description=vinoGram profile avatar shapes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=vinogram-avatars
+StateDirectoryMode=0700
+WorkingDirectory=/opt/vinogram-avatars
+EnvironmentFile=-/etc/vinogram-avatars.env
+ExecStart=/usr/bin/python3 /opt/vinogram-avatars/server.py
+Restart=on-failure
+RestartSec=5
+MemoryMax=128M
+CPUQuota=10%
+TasksMax=32
+Nice=10
+IOWeight=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

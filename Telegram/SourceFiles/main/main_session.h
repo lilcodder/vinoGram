@@ -43,6 +43,7 @@ class EphemeralMessages;
 class SponsoredMessages;
 class TopPeers;
 class Factchecks;
+class AvatarShapes;
 class LocationPickers;
 class Credits;
 class PromoSuggestions;
@@ -185,6 +186,7 @@ public:
 	[[nodiscard]] Data::RecentInlineBots &recentInlineBots() const {
 		return *_recentInlineBots;
 	}
+	[[nodiscard]] Data::AvatarShapes &avatarShapes();
 	[[nodiscard]] Data::Factchecks &factchecks() const {
 		return *_factchecks;
 	}
@@ -351,6 +353,7 @@ private:
 	const std::unique_ptr<Data::TopPeers> _topBotApps;
 	const std::unique_ptr<Data::TopPeers> _topGuestChatBots;
 	const std::unique_ptr<Data::RecentInlineBots> _recentInlineBots;
+	std::unique_ptr<Data::AvatarShapes> _avatarShapes;
 	const std::unique_ptr<Data::Factchecks> _factchecks;
 	const std::unique_ptr<Data::LocationPickers> _locationPickers;
 	const std::unique_ptr<Data::Credits> _credits;

@@ -647,6 +647,9 @@ PRIVATE
     data/components/credits.h
     data/components/ephemeral_messages.cpp
     data/components/ephemeral_messages.h
+    data/avatar_shape.h
+    data/components/avatar_shapes.cpp
+    data/components/avatar_shapes.h
     data/components/factchecks.cpp
     data/components/factchecks.h
     data/components/gift_auctions.cpp
@@ -1364,6 +1367,8 @@ PRIVATE
     info/profile/info_profile_shared_media_classic.h
     info/profile/info_profile_status_label.cpp
     info/profile/info_profile_status_label.h
+    info/profile/info_profile_avatar_shape.cpp
+    info/profile/info_profile_avatar_shape.h
     info/profile/info_profile_top_bar.cpp
     info/profile/info_profile_top_bar.h
     info/profile/info_profile_values.cpp

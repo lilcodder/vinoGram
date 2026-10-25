@@ -570,6 +570,9 @@ PRIVATE
     ui/effects/layer_backdrop.h
     ui/effects/loading_element.cpp
     ui/effects/loading_element.h
+    ui/effects/expressive_avatar.cpp
+    ui/effects/expressive_avatar.h
+    ui/effects/expressive_avatar_geometry.h
     ui/effects/ministar_particles.cpp
     ui/effects/ministar_particles.h
     ui/effects/outline_segments.cpp
