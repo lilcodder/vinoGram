@@ -528,13 +528,8 @@ void PaintRow(
 			context.width,
 			context.st->photoSize);
 	} else if (!(flags & Flag::AllowUserOnline)) {
-		PaintUserpic(
-			p,
-			entry,
-			from,
-			videoUserpic,
-			row->userpicView(),
-			context);
+		row->BasicRow::paintUserpic(
+			p, entry, from, videoUserpic, context, false);
 	} else {
 		row->paintUserpic(
 			p,

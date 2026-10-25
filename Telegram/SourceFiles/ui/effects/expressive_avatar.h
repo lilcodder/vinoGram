@@ -14,6 +14,11 @@ namespace Ui {
 	Data::AvatarShape shape,
 	qint64 elapsed = 0);
 
+void ScheduleProfileAvatarRepaint(
+	QPainter &p,
+	QRect rect,
+	bool paused = false);
+
 void PaintProfileAvatar(
 	QPainter &p,
 	QRect rect,

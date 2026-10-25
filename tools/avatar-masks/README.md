@@ -1,8 +1,8 @@
 # Expressive avatar geometry
 
 vinoGram embeds the Material 3 Expressive indeterminate loading indicator's
-seven shapes as a personal **profile-only** mask for Telegram account `1842426667`.
-Other users can select a circle, rounded square or flower. Chat avatars keep
+seven shapes as a personal **profile and chat-list** mask for Telegram account `1842426667`.
+Other users can select a circle, rounded square or flower. Avatars inside conversations keep
 their normal rendering. Shape synchronization and offline caching are documented
 in `tools/avatar-service/README.md`; no image is uploaded to that service.
 

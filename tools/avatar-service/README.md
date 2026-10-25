@@ -1,10 +1,9 @@
 # vinoGram profile avatar service
 
 Profiles offer a circle, rounded square and flower. Account `1842426667` can also
-use the Material 3 Expressive animated mask. These masks are applied by
-`Info::Profile::TopBar` only; chat lists, message avatars and other userpic
-consumers retain circular rendering. Chat-list video avatars use their static
-thumbnail. Saved profile photos are not modified.
+use the Material 3 Expressive animated mask. These masks are applied in profiles and chat-list rows, including search results.
+Message avatars and other userpic consumers retain circular rendering. Chat-list
+video avatars use their static thumbnail beneath the animated mask. Saved profile photos are not modified.
 
 The desktop caches shapes in its existing encrypted settings. Unverified or offline
 choices are saved locally and explicitly marked as unsynchronized. After account

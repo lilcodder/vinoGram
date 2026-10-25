@@ -16,7 +16,7 @@ namespace Ui {
 namespace {
 
 constexpr auto kMorphInterval = 650;
-constexpr auto kFrameInterval = 33;
+constexpr auto kFrameInterval = 16;
 
 bool MotionPaused() {
 	return anim::Disabled() || PowerSaving::On(PowerSaving::kAnimations);
@@ -31,7 +31,12 @@ qint64 AnimationTime(bool paused) {
 	return (paused || MotionPaused()) ? 0 : clock.elapsed();
 }
 
-void ScheduleRepaint(QPainter &p, QRect rect) {
+} // namespace
+
+void ScheduleProfileAvatarRepaint(QPainter &p, QRect rect, bool paused) {
+	if (paused || MotionPaused()) {
+		return;
+	}
 	if (!p.device() || p.device()->devType() != QInternal::Widget) {
 		return;
 	}
@@ -52,6 +57,7 @@ void ScheduleRepaint(QPainter &p, QRect rect) {
 	if (!timer) {
 		timer = new QTimer(widget);
 		timer->setObjectName(name);
+		timer->setTimerType(Qt::PreciseTimer);
 		timer->setSingleShot(true);
 		QObject::connect(timer, &QTimer::timeout, widget, [=] {
 			const auto area = timer->property("avatarRegion").value<QRegion>();
@@ -70,8 +76,6 @@ void ScheduleRepaint(QPainter &p, QRect rect) {
 	}
 }
 
-} // namespace
-
 QPainterPath ExpressiveAvatarPath(qint64 elapsed) {
 	using namespace ExpressiveAvatarGeometry;
 	elapsed = std::max(qint64(0), elapsed);
@@ -79,10 +83,11 @@ QPainterPath ExpressiveAvatarPath(qint64 elapsed) {
 	const auto time = (elapsed % kMorphInterval) / 1000.;
 	const auto omega = std::sqrt(200.);
 	const auto frequency = omega * .8;
-	const auto progress = (time >= .6) ? 1. : (1.
-		- std::exp(-.6 * omega * time)
-			* (std::cos(frequency * time)
-				+ .75 * std::sin(frequency * time)));
+	const auto spring = 1. - std::exp(-.6 * omega * time)
+		* (std::cos(frequency * time) + .75 * std::sin(frequency * time));
+	const auto settle = std::clamp((time - .5) / .15, 0., 1.);
+	const auto blend = settle * settle * (3. - 2. * settle);
+	const auto progress = spring + (1. - spring) * blend;
 	const auto morph = std::clamp(progress, 0., 1.);
 	const auto &transition = kTransitions[step % kTransitions.size()];
 	auto path = QPainterPath();
@@ -104,7 +109,7 @@ QPainterPath ExpressiveAvatarPath(qint64 elapsed) {
 	path.closeSubpath();
 	const auto center = path.boundingRect().center();
 	const auto angle = std::fmod(
-		90. * ((step + 1) % 4) + 90. * progress + elapsed * 360. / 4666.,
+		90. * ((step + 1) % 4) + 90. * morph + elapsed * 360. / 4666.,
 		360.);
 	auto transform = QTransform();
 	transform.translate(.5, .5);
@@ -116,7 +121,14 @@ QPainterPath ExpressiveAvatarPath(qint64 elapsed) {
 
 QPainterPath ProfileAvatarPath(Data::AvatarShape shape, qint64 elapsed) {
 	if (shape == Data::AvatarShape::Expressive) {
-		return ExpressiveAvatarPath(elapsed);
+		static auto cachedFrame = qint64(-1);
+		static auto cached = QPainterPath();
+		const auto frame = elapsed / kFrameInterval;
+		if (cachedFrame != frame) {
+			cachedFrame = frame;
+			cached = ExpressiveAvatarPath(frame * kFrameInterval);
+		}
+		return cached;
 	}
 	auto path = QPainterPath();
 	if (shape == Data::AvatarShape::Circle) {
@@ -170,7 +182,7 @@ void PaintProfileAvatar(
 	p.drawPath(path);
 	p.restore();
 	if (shape == Data::AvatarShape::Expressive && !paused && !MotionPaused()) {
-		ScheduleRepaint(p, rect);
+		ScheduleProfileAvatarRepaint(p, rect);
 	}
 }
 

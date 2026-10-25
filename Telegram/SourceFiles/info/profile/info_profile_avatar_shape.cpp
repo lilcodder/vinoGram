@@ -28,19 +28,33 @@ object_ptr<Ui::BoxContent> AvatarShapeBox(
 		box->setWidth(st::boxWideWidth);
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
-			rpl::single(u"Форма видна только в профиле у пользователей vinoGram. В чатах аватарка остаётся круглой."_q),
+			rpl::single(u"Форма видна в профиле и списке чатов vinoGram. Внутри переписки аватарка остаётся круглой."_q),
 			st::boxLabel));
 		const auto selected = box->lifetime().make_state<Data::AvatarShape>(
 			manager.shape(session->userId()));
 		const auto preview = box->addRow(object_ptr<Ui::FixedHeightWidget>(
 			box, 150));
-		const auto view = preview->lifetime().make_state<Ui::PeerUserpicView>();
+		struct PreviewImage {
+			Ui::PeerUserpicView view;
+			InMemoryKey key;
+			QImage image;
+			int paletteVersion = 0;
+		};
+		const auto cache = preview->lifetime().make_state<PreviewImage>();
 		preview->paintRequest() | rpl::on_next([=] {
 			auto painter = QPainter(preview);
 			const auto rect = QRect((preview->width() - 128) / 2, 8, 128, 128);
-			const auto image = PeerData::GenerateUserpicImage(
-				session->user(), *view, 128 * style::DevicePixelRatio(), 0);
-			Ui::PaintProfileAvatar(painter, rect, image, *selected);
+			const auto key = session->user()->userpicUniqueKey(cache->view);
+			const auto size = 128 * style::DevicePixelRatio();
+			const auto palette = style::PaletteVersion();
+			if (cache->key != key || cache->image.size() != QSize(size, size)
+				|| cache->paletteVersion != palette) {
+				cache->key = key;
+				cache->paletteVersion = palette;
+				cache->image = PeerData::GenerateUserpicImage(
+					session->user(), cache->view, size, 0);
+			}
+			Ui::PaintProfileAvatar(painter, rect, cache->image, *selected);
 		}, preview->lifetime());
 		session->downloaderTaskFinished() | rpl::on_next([=] {
 			preview->update();

@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/userpic_view.h"
 #include "dialogs/dialogs_entry.h"
 #include "dialogs/dialogs_key.h"
+#include "data/avatar_shape.h"
 #include "dialogs/ui/dialogs_message_view.h"
 
 class History;
@@ -75,6 +76,13 @@ public:
 	}
 
 private:
+	struct ShapedUserpic {
+		InMemoryKey key;
+		QImage image;
+		int paletteVersion = 0;
+	};
+
+	mutable std::unique_ptr<ShapedUserpic> _shapedUserpic;
 	mutable Ui::PeerUserpicView _userpic;
 	mutable std::unique_ptr<Ui::RippleAnimation> _ripple;
 
@@ -190,6 +198,7 @@ private:
 		QImage cacheTTL;
 		QImage cacheHidden;
 		int frameIndex = -1;
+		Data::AvatarShape shape = Data::AvatarShape::Circle;
 		uint32 paletteVersion : 16 = 0;
 		uint32 storiesCount : 6 = 0;
 		uint32 storiesUnreadCount : 6 = 0;
@@ -203,7 +212,7 @@ private:
 		CornerLayersManager::Layer nextLayer,
 		Fn<void()> updateCallback) const;
 	void ensureCornerBadgeUserpic() const;
-	static void PaintCornerBadgeFrame(
+	void PaintCornerBadgeFrame(
 		not_null<CornerBadgeUserpic*> data,
 		int framePadding,
 		not_null<Entry*> entry,
@@ -213,7 +222,7 @@ private:
 		const Ui::PaintContext &context,
 		bool subscribed,
 		bool communityMember,
-		bool hidden);
+		bool hidden) const;
 
 	Key _id;
 	mutable std::unique_ptr<CornerBadgeUserpic> _cornerBadgeUserpic;

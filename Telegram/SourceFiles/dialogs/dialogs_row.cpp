@@ -10,6 +10,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_theme.h" // CountAverageColor.
 #include "ui/color_contrast.h"
 #include "ui/effects/credits_graphics.h"
+#include "ui/effects/expressive_avatar.h"
+#include "data/components/avatar_shapes.h"
+#include "main/main_session.h"
 #include "ui/effects/outline_segments.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/effects/ttl_icon.h"
@@ -45,6 +48,13 @@ constexpr auto kHiddenLayer = 2;
 constexpr auto kBottomLayer = 1;
 constexpr auto kNoneLayer = 0;
 constexpr auto kBlurRadius = 24;
+
+Data::AvatarShape DialogAvatarShape(PeerData *peer) {
+	const auto user = peer ? peer->asUser() : nullptr;
+	return user
+		? user->session().avatarShapes().shape(peerToUser(user->id))
+		: Data::AvatarShape::Circle;
+}
 
 [[nodiscard]] int SubscriptionCutSkip() {
 	const auto width = st::dialogsSubscriptionBadgeOutlineTwice / 2.;
@@ -390,7 +400,39 @@ void BasicRow::paintUserpic(
 		Ui::VideoUserpic *videoUserpic,
 		const Ui::PaintContext &context,
 		bool hasUnreadBadgesAbove) const {
-	PaintUserpic(p, entry, peer, videoUserpic, _userpic, context);
+	const auto shape = DialogAvatarShape(peer);
+	if (peer && peer->isUser()) {
+		peer->session().avatarShapes().refresh(peerToUser(peer->id));
+	}
+	if (shape == Data::AvatarShape::Circle) {
+		_shapedUserpic = nullptr;
+		PaintUserpic(p, entry, peer, videoUserpic, _userpic, context);
+		return;
+	}
+	if (!_shapedUserpic) {
+		_shapedUserpic = std::make_unique<ShapedUserpic>();
+	}
+	const auto key = peer->userpicUniqueKey(_userpic);
+	const auto size = context.st->photoSize;
+	const auto scaled = size * style::DevicePixelRatio();
+	const auto palette = style::PaletteVersion();
+	if (_shapedUserpic->key != key
+		|| _shapedUserpic->image.size() != QSize(scaled, scaled)
+		|| _shapedUserpic->paletteVersion != palette) {
+		_shapedUserpic->key = key;
+		_shapedUserpic->paletteVersion = palette;
+		_shapedUserpic->image = PeerData::GenerateUserpicImage(
+			peer, _userpic, scaled, 0);
+	}
+	const auto x = rtl()
+		? context.width - context.st->padding.left() - size
+		: context.st->padding.left();
+	Ui::PaintProfileAvatar(
+		p,
+		QRect(x, context.st->padding.top(), size, size),
+		_shapedUserpic->image,
+		shape,
+		context.paused);
 }
 
 Row::Row(Key key, int index, int top) : _id(key), _top(top), _index(index) {
@@ -510,7 +552,7 @@ void Row::PaintCornerBadgeFrame(
 		const Ui::PaintContext &context,
 		bool subscribed,
 		bool communityMember,
-		bool hidden) {
+		bool hidden) const {
 	data->frame.fill(Qt::transparent);
 
 	Painter q(&data->frame);
@@ -530,13 +572,8 @@ void Row::PaintCornerBadgeFrame(
 		q.translate(-center, -center);
 	}
 	q.translate(-context.st->padding.left(), -context.st->padding.top());
-	PaintUserpic(
-		q,
-		entry,
-		peer,
-		videoUserpic,
-		view,
-		context);
+	BasicRow::paintUserpic(
+		q, entry, peer, videoUserpic, context, false);
 	q.translate(context.st->padding.left(), context.st->padding.top());
 	if (storiesCount) {
 		q.restore();
@@ -732,6 +769,7 @@ void Row::paintUserpic(
 			hidden);
 	}
 
+	const auto shape = DialogAvatarShape(peer);
 	const auto cornerBadgeShown = !_cornerBadgeUserpic
 		? _cornerBadgeShown
 		: !_cornerBadgeUserpic->layersManager.isDisplayedNone();
@@ -821,11 +859,14 @@ void Row::paintUserpic(
 		|| !_cornerBadgeUserpic->layersManager.isFinished()
 		|| (activeMatters && _cornerBadgeUserpic->active != active)
 		|| _cornerBadgeUserpic->hidden != (hidden ? 1 : 0)
+		|| _cornerBadgeUserpic->shape != shape
+		|| shape == Data::AvatarShape::Expressive
 		|| _cornerBadgeUserpic->frameIndex != frameIndex
 		|| _cornerBadgeUserpic->storiesCount != storiesCount
 		|| _cornerBadgeUserpic->storiesUnreadCount != storiesUnreadCount
 		|| _cornerBadgeUserpic->storiesHasVideoStream != storiesHasVideoStream
 		|| videoUserpic) {
+		_cornerBadgeUserpic->shape = shape;
 		_cornerBadgeUserpic->key = key;
 		_cornerBadgeUserpic->paletteVersion = paletteVersion;
 		_cornerBadgeUserpic->active = active;
@@ -851,6 +892,14 @@ void Row::paintUserpic(
 		context.st->padding.left() - framePadding,
 		context.st->padding.top() - framePadding,
 		_cornerBadgeUserpic->frame);
+	if (shape == Data::AvatarShape::Expressive) {
+		const auto size = context.st->photoSize;
+		const auto x = rtl()
+			? context.width - context.st->padding.left() - size
+			: context.st->padding.left();
+		Ui::ScheduleProfileAvatarRepaint(
+			p, QRect(x, context.st->padding.top(), size, size), context.paused);
+	}
 	const auto history = _id.history();
 	if (!history
 		|| history->peer->isUser()

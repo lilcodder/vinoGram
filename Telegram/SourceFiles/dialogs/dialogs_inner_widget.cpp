@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/screen_reader_mode.h"
 #include "ui/ui_utility.h"
 #include "data/components/sponsored_messages.h"
+#include "data/components/avatar_shapes.h"
 #include "data/data_drafts.h"
 #include "data/data_folder.h"
 #include "data/data_forum.h"
@@ -314,6 +315,12 @@ InnerWidget::InnerWidget(
 	setAccessibleName(tr::lng_recent_chats(tr::now));
 
 	_communityViewable.setRepaint([=] { update(); });
+
+	session().avatarShapes().changes() | rpl::on_next([=](UserId) {
+		_rowsScrollCache.clear();
+		_cachedRows.clear();
+		update();
+	}, lifetime());
 
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
@@ -1101,7 +1108,11 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 			: _chatPreviewRow.key
 			? (row->key() == _chatPreviewRow.key)
 			: selected;
+		const auto shapedUserpic = history && history->peer->isUser()
+			&& session().avatarShapes().shape(peerToUser(history->peer->id))
+				!= Data::AvatarShape::Circle;
 		const auto cacheAllowed = _rowsScrollCache.scrolling()
+			&& !shapedUserpic
 			&& (!videoUserpic || !context.narrow)
 			&& !active
 			&& !cacheSelected
