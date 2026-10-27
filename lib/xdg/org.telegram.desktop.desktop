@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=Telegram
-Comment=New era of messaging
+Name=vinoGram
+Comment=Messaging client with VPN subscription support
 TryExec=Telegram
 Exec=Telegram -- %U
-Icon=org.telegram.desktop
+Icon=io.github.lilcodder.vinoGram
 Terminal=false
 StartupWMClass=TelegramDesktop
 Type=Application
@@ -18,5 +18,5 @@ X-GNOME-SingleWindow=true
 
 [Desktop Action quit]
 Exec=Telegram -quit
-Name=Quit Telegram
+Name=Quit vinoGram
 Icon=application-exit

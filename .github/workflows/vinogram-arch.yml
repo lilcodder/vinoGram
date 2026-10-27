@@ -1,0 +1,192 @@
+name: vinoGram Arch Linux Release
+
+on:
+  push:
+    branches: ['codex/arch-desktop-integration']
+    paths: ['.github/workflows/vinogram-arch.yml', 'Telegram/SourceFiles/platform/linux/**', 'Telegram/CMakeLists.txt', 'lib/xdg/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vinogram-arch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    timeout-minutes: 350
+    defaults:
+      run:
+        shell: bash
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '3'
+      CARGO_BUILD_JOBS: '3'
+      CARGO_HOME: ${{ github.workspace }}/work/cargo
+    steps:
+      - name: Prepare private API configuration
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          set -euo pipefail
+          [[ "$TDESKTOP_API_ID" =~ ^[1-9][0-9]*$ ]] || { echo 'Set the TDESKTOP_API_ID repository secret'; exit 1; }
+          [[ "$TDESKTOP_API_HASH" =~ ^[a-fA-F0-9]{32}$ ]] || { echo 'Set the TDESKTOP_API_HASH repository secret'; exit 1; }
+          umask 077
+          printf 'set(TDESKTOP_API_ID "%s" CACHE STRING "" FORCE)\nset(TDESKTOP_API_HASH "%s" CACHE STRING "" FORCE)\n' "$TDESKTOP_API_ID" "$TDESKTOP_API_HASH" > "$RUNNER_TEMP/vinogram-api.cmake"
+      - name: Install Arch build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed base-devel cmake ninja git python cargo just gperf glib2-devel gobject-introspection boost boost-libs qt6-shadertools vulkan-headers microsoft-gsl range-v3 tl-expected libtg_owt abseil-cpp ada cairo ffmpeg fontconfig glib2 glibc hicolor-icon-theme hunspell kcoreaddons libavif libfido2 libgcc libheif libjpeg-turbo libjxl libpipewire libsrtp libstdc++ libvpx libx11 libxcb libxcomposite libxdamage libxext libxfixes libxkbcommon libxrandr libxtst lz4 minizip openal openh264 openssl opus pango pipewire qt6-base qt6-declarative qt6-imageformats qt6-svg qt6-wayland rnnoise tlottie xxhash zlib desktop-file-utils
+      - name: Check out the corrected Windows Update release sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - name: Build pinned additional libraries
+        run: |
+          set -euo pipefail
+          mkdir -p work/deps work/prefix
+          cd work/deps
+          curl -fsSL --retry 3 https://codeload.github.com/tdlib/td/tar.gz/51743dfd01dff6179e2d8f7095729caa4e2222e9 | tar xz
+          curl -fsSL --retry 3 https://codeload.github.com/i582/wallet-engine/tar.gz/e59e0d89d7ee90c388bf36e3334c5b276f396697 | tar xz
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/desktop-app/patches/8cb6c81e74b8e2c4da0e500c4d05acffb342f97e/wallet-engine.patch -o wallet-engine.patch
+          mv wallet-engine-e59e0d89d7ee90c388bf36e3334c5b276f396697 wallet-engine
+          mv td-51743dfd01dff6179e2d8f7095729caa4e2222e9 td
+          patch -Np1 -d wallet-engine < wallet-engine.patch
+          cd wallet-engine
+          cargo build --release --locked --config "profile.release.opt-level=3" --config "profile.release.panic='unwind'"
+          cargo run --manifest-path bindgen/cpp/bindgen/Cargo.toml --locked -- --library --out-dir "$GITHUB_WORKSPACE/work/prefix/include/wallet_engine" target/release/libwallet_engine.so
+          install -Dm644 target/release/libwallet_engine.a "$GITHUB_WORKSPACE/work/prefix/lib/libwallet_engine.a"
+          cd "$GITHUB_WORKSPACE"
+          cmake -S work/deps/td -B work/deps/td-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/work/prefix" -DTD_E2E_ONLY=ON
+          cmake --build work/deps/td-build
+          cmake --install work/deps/td-build
+      - name: Build vinoGram Release
+        run: |
+          cmake -S . -B work/client -G Ninja -C "$RUNNER_TEMP/vinogram-api.cmake" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS_RELEASE='-O2 -DNDEBUG' -DCMAKE_C_FLAGS_RELEASE='-O2 -DNDEBUG' -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/work/prefix" -DCMAKE_INSTALL_PREFIX=/usr -DTDESKTOP_API_TEST=OFF -DDESKTOP_APP_USE_PACKAGED=ON -DDESKTOP_APP_DISABLE_AUTOUPDATE=ON -DDESKTOP_APP_DISABLE_CRASH_REPORTS=ON -DDESKTOP_APP_ENABLE_LTO=OFF
+          cmake --build work/client --target Telegram
+      - name: Build and validate the Arch package
+        run: |
+          set -euo pipefail
+          mkdir -p work/package/stage work/dist
+          install -m755 work/client/bin/Telegram work/package/stage/Telegram
+          strip --strip-unneeded work/package/stage/Telegram
+          python tools/subscription/prepare_xray.py --output work/package/stage/xray
+          cp LICENSE LEGAL work/package/
+          cp -a Telegram/Resources/art work/package/icons
+          cp -a Telegram/Resources/icons work/package/symbolic-icons
+          cat > work/package/PKGBUILD <<'VINOGRAM_EOF'
+          pkgname=vinogram-bin
+          pkgver=1.0.0
+          pkgrel=2
+          pkgdesc='vinoGram messaging client with VPN subscription support'
+          arch=('x86_64')
+          url='https://github.com/lilcodder/vinoGram'
+          license=('GPL-3.0-or-later WITH OpenSSL-exception')
+          depends=('abseil-cpp' 'ada' 'cairo' 'ffmpeg' 'fontconfig' 'glib2' 'glibc' 'hicolor-icon-theme' 'hunspell' 'kcoreaddons' 'libavif' 'libfido2' 'libgcc' 'libheif' 'libjpeg-turbo' 'libjxl' 'libpipewire' 'libsrtp' 'libstdc++' 'libvpx' 'libx11' 'libxcb' 'libxcomposite' 'libxdamage' 'libxext' 'libxfixes' 'libxkbcommon' 'libxrandr' 'libxtst' 'lz4' 'minizip' 'openal' 'openh264' 'openssl' 'opus' 'pango' 'pipewire' 'qt6-base' 'qt6-declarative' 'qt6-imageformats' 'qt6-svg' 'qt6-wayland' 'rnnoise' 'tlottie' 'xxhash' 'zlib')
+          optdepends=('xdg-desktop-portal: desktop integration' 'webkit2gtk-4.1: embedded browser' 'libpulse: PulseAudio support')
+          options=('!strip' '!debug')
+
+          package() {
+              local stage="$startdir/stage"
+              test -x "$stage/Telegram" || return 1
+              test -x "$stage/xray/xray" || return 1
+              install -Dm755 "$stage/Telegram" "$pkgdir/opt/vinogram/Telegram"
+              install -dm755 "$pkgdir/opt/vinogram/xray" "$pkgdir/usr/bin"
+              cp -a "$stage/xray/." "$pkgdir/opt/vinogram/xray/"
+              ln -s /opt/vinogram/Telegram "$pkgdir/usr/bin/vinogram"
+              install -Dm644 "$startdir/vinogram.desktop" "$pkgdir/usr/share/applications/io.github.lilcodder.vinoGram.desktop"
+              local size
+              for size in 16 32 48 64 128 256 512; do
+                  install -Dm644 "$startdir/icons/icon$size.png" "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/io.github.lilcodder.vinoGram.png"
+                  install -Dm644 "$startdir/icons/icon$size@2x.png" "$pkgdir/usr/share/icons/hicolor/${size}x${size}@2/apps/io.github.lilcodder.vinoGram.png"
+              done
+              local variant
+              for variant in '' _attention _mute; do
+                  install -Dm644 "$startdir/symbolic-icons/tray_monochrome$variant.svg" "$pkgdir/usr/share/icons/hicolor/symbolic/apps/io.github.lilcodder.vinoGram${variant/_/-}-symbolic.svg"
+              done
+              install -Dm644 "$startdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+              install -Dm644 "$startdir/build-info.json" "$pkgdir/usr/share/doc/$pkgname/build-info.json"
+              install -Dm644 "$startdir/LEGAL" "$pkgdir/usr/share/licenses/$pkgname/LEGAL"
+          }
+          VINOGRAM_EOF
+          cat > work/package/vinogram.desktop <<'VINOGRAM_EOF'
+          [Desktop Entry]
+          Name=vinoGram
+          Comment=Messaging client with VPN subscription support
+          TryExec=vinogram
+          Exec=vinogram -- %U
+          Icon=io.github.lilcodder.vinoGram
+          Terminal=false
+          StartupWMClass=TelegramDesktop
+          Type=Application
+          Categories=Chat;Network;InstantMessaging;Qt;
+          MimeType=x-scheme-handler/tg;x-scheme-handler/tonsite;x-scheme-handler/ton;
+          Keywords=tg;chat;messaging;vinogram;
+          Actions=quit;
+          X-GNOME-UsesNotifications=true
+
+          [Desktop Action quit]
+          Exec=vinogram -quit
+          Name=Quit vinoGram
+          Icon=application-exit
+          VINOGRAM_EOF
+          cat > work/package/build-info.json <<'VINOGRAM_EOF'
+          {
+            "product": "vinoGram",
+            "package_version": "1.0.0-2",
+            "source_commit": "${{ github.sha }}",
+            "windows_release_commit": "2a8d64abe899ad6f258490395bea5dc2ef62e0bf",
+            "source_url": "https://github.com/lilcodder/vinoGram/tree/${{ github.sha }}",
+            "desktop_id": "io.github.lilcodder.vinoGram",
+            "upstream_version": "7.3.2",
+            "configuration": "Release",
+            "architecture": "x86_64",
+            "xray_version": "26.9.9",
+            "auto_updates": false
+          }
+          VINOGRAM_EOF
+          desktop-file-validate work/package/vinogram.desktop
+          ldd work/package/stage/Telegram > work/runtime-libraries.txt
+          if grep -q 'not found' work/runtime-libraries.txt; then cat work/runtime-libraries.txt; exit 1; fi
+          work/package/stage/xray/xray version
+          useradd --create-home builder
+          chown -R builder:builder work/package work/dist
+          cd work/package
+          runuser -u builder -- env PKGDEST="$GITHUB_WORKSPACE/work/dist" makepkg --force
+          cd ../dist
+          pacman -Qip vinogram-bin-1.0.0-2-x86_64.pkg.tar.zst
+          bsdtar -tf vinogram-bin-1.0.0-2-x86_64.pkg.tar.zst | grep -E '^(opt/vinogram/Telegram|opt/vinogram/xray/xray|usr/bin/vinogram)$'
+          mkdir verify
+          bsdtar -xf vinogram-bin-1.0.0-2-x86_64.pkg.tar.zst -C verify
+          desktop=verify/usr/share/applications/io.github.lilcodder.vinoGram.desktop
+          desktop-file-validate "$desktop"
+          grep -Fx 'Name=vinoGram' "$desktop"
+          grep -Fx 'Icon=io.github.lilcodder.vinoGram' "$desktop"
+          for size in 16 32 48 64 128 256 512; do
+              test -s "verify/usr/share/icons/hicolor/${size}x${size}/apps/io.github.lilcodder.vinoGram.png"
+          done
+          test ! -e verify/usr/share/applications/vinogram.desktop
+          test ! -e verify/usr/share/applications/org.telegram.desktop.desktop
+          smoke_dir="$(mktemp -d)"
+          smoke_status=0
+          timeout --signal=TERM 10s env QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ./verify/opt/vinogram/Telegram -many -workdir "$smoke_dir" > "$smoke_dir/startup-output.txt" 2>&1 || smoke_status=$?
+          [[ "$smoke_status" == 0 || "$smoke_status" == 124 ]]
+          grep -RF 'App ID: io.github.lilcodder.vinoGram' "$smoke_dir"
+          sha256sum *.pkg.tar.zst > SHA256SUMS
+      - name: Upload the package artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: vinoGram-1.0.0-2-Arch-x86_64
+          path: |
+            work/dist/*.pkg.tar.zst
+            work/dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Remove private build configuration
+        if: always()
+        run: rm -f "$RUNNER_TEMP/vinogram-api.cmake"
